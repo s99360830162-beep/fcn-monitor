@@ -85,7 +85,6 @@
                         <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 mt-0.5">
                             <span id="header-quote-date">最新報價日：2026/11/24</span>
                             <span>｜</span>
-                            <span id="quote-source-badge" class="font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">來源: 初始化</span>
                             <span class="flex items-center gap-1.5 font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
                                 <span id="auto-refresh-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <select id="refresh-interval-select" onchange="changeRefreshInterval(this.value)" title="選擇自動更新頻率" class="bg-transparent text-emerald-800 font-bold text-xs focus:outline-none cursor-pointer">
@@ -102,18 +101,8 @@
                     </div>
                 </div>
 
-                <!-- 操作按鈕區 (縮放控制、報價設定、分享網頁、立即更新) -->
+                <!-- 操作按鈕區 (分享網頁、即時股價、立即更新) -->
                 <div class="flex items-center gap-1.5">
-                    <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 text-xs font-extrabold text-slate-700">
-                        <button onclick="setStageZoom('fit')" id="btn-zoom-fit" class="px-2 py-1 rounded-lg bg-indigo-600 text-white shadow-2xs transition">🖥️ 全景</button>
-                        <button onclick="adjustStageZoom(-0.12)" class="px-2 py-1 rounded-lg hover:bg-white transition" title="縮小">－</button>
-                        <span id="zoom-pct-label" class="px-1.5 text-[11px] font-mono text-slate-600">100%</span>
-                        <button onclick="adjustStageZoom(0.12)" class="px-2 py-1 rounded-lg hover:bg-white transition" title="放大">＋</button>
-                        <button onclick="setStageZoom(1)" id="btn-zoom-100" class="px-1.5 py-1 rounded-lg hover:bg-white transition text-[11px]">100%</button>
-                    </div>
-                    <button onclick="openQuoteSettingsModal()" id="btn-quote-settings" class="px-2.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold shadow-2xs transition flex items-center gap-1 whitespace-nowrap" title="設定即時報價來源 / Finnhub WebSocket / 盤前盤後">
-                        <span>⚙️ 報價</span>
-                    </button>
                     <button onclick="openShareModal()" id="btn-open-share" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1 whitespace-nowrap" title="產生可分享給他人的網頁連結（支援隱藏本金與純檢視模式）">
                         <span>🔗 分享給他人</span>
                     </button>
@@ -1002,7 +991,6 @@ ARM 158.00</textarea>
         function updatePrivacyUiChrome() {
             const banner = document.getElementById('readonly-share-banner');
             const bannerDesc = document.getElementById('readonly-share-banner-desc');
-            const btnQuoteSettings = document.getElementById('btn-quote-settings');
             const btnOpenShare = document.getElementById('btn-open-share');
 
             if (banner) {
@@ -1018,21 +1006,16 @@ ARM 158.00</textarea>
                 }
             }
 
-            if (btnQuoteSettings) btnQuoteSettings.classList.toggle('hidden', shareViewState.readOnly);
             if (btnOpenShare) btnOpenShare.classList.toggle('hidden', shareViewState.readOnly);
         }
 
         // ================= 方式 1：手機/電腦自動等比例全景縮放引擎 =================
         const DESKTOP_BASE_WIDTH = 1220;
-        let currentZoomMode = 'fit';
         let currentZoomScale = 1;
 
         function applyStageZoom() {
             const wrapper = document.getElementById('desktop-stage-wrapper');
             const outer = document.getElementById('desktop-stage-outer');
-            const label = document.getElementById('zoom-pct-label');
-            const btnFit = document.getElementById('btn-zoom-fit');
-            const btn100 = document.getElementById('btn-zoom-100');
             if (!wrapper || !outer) return;
 
             const viewportW = Math.min(
@@ -1040,11 +1023,9 @@ ARM 158.00</textarea>
                 document.documentElement.clientWidth || DESKTOP_BASE_WIDTH
             );
 
-            if (currentZoomMode === 'fit') {
-                currentZoomScale = viewportW < DESKTOP_BASE_WIDTH
-                    ? Math.max(0.26, +(viewportW / DESKTOP_BASE_WIDTH).toFixed(4))
-                    : 1;
-            }
+            currentZoomScale = viewportW < DESKTOP_BASE_WIDTH
+                ? Math.max(0.26, +(viewportW / DESKTOP_BASE_WIDTH).toFixed(4))
+                : 1;
 
             wrapper.style.zoom = '';
             if (Math.abs(currentZoomScale - 1) < 0.005 && viewportW >= DESKTOP_BASE_WIDTH) {
@@ -1060,38 +1041,10 @@ ARM 158.00</textarea>
                 wrapper.style.marginRight = '0px';
                 outer.style.height = `${Math.ceil(wrapper.offsetHeight * currentZoomScale)}px`;
             }
-
-            if (label) label.textContent = `${Math.round(currentZoomScale * 100)}%`;
-            if (btnFit) {
-                btnFit.className = currentZoomMode === 'fit'
-                    ? 'px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-2xs transition'
-                    : 'px-2.5 py-1 rounded-lg hover:bg-white transition text-slate-700';
-            }
-            if (btn100) {
-                btn100.className = (currentZoomMode !== 'fit' && Math.abs(currentZoomScale - 1) < 0.02)
-                    ? 'px-2 py-1 rounded-lg bg-indigo-600 text-white shadow-2xs transition text-[11px]'
-                    : 'px-2 py-1 rounded-lg hover:bg-white transition text-[11px] text-slate-700';
-            }
-        }
-
-        function setStageZoom(modeOrScale) {
-            if (modeOrScale === 'fit') {
-                currentZoomMode = 'fit';
-            } else {
-                currentZoomMode = 'custom';
-                currentZoomScale = Math.max(0.3, Math.min(1.5, parseFloat(modeOrScale) || 1));
-            }
-            applyStageZoom();
-        }
-
-        function adjustStageZoom(delta) {
-            currentZoomMode = 'custom';
-            currentZoomScale = Math.max(0.3, Math.min(1.5, +(currentZoomScale + delta).toFixed(2)));
-            applyStageZoom();
         }
 
         window.addEventListener('resize', () => {
-            if (currentZoomMode === 'fit') applyStageZoom();
+            applyStageZoom();
         });
 
         window.pushContractsToCloudIfReady = function() {};
@@ -1131,20 +1084,6 @@ ARM 158.00</textarea>
         function updateHeaderMarketBadges(sourceText, statusCode) {
             if (sourceText) lastQuoteSourceLabel = sourceText;
             if (statusCode) currentMarketStatus = statusCode;
-
-            const srcEl = document.getElementById('quote-source-badge');
-            if (srcEl) {
-                if (finnhubWsConnected) {
-                    srcEl.textContent = `⚡ Finnhub WS 即時`;
-                    srcEl.className = 'font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-md';
-                } else if (lastQuoteSourceLabel.includes('受限') || lastQuoteSourceLabel.includes('基準')) {
-                    srcEl.textContent = `來源: ${lastQuoteSourceLabel}`;
-                    srcEl.className = 'font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md';
-                } else {
-                    srcEl.textContent = `來源: ${lastQuoteSourceLabel}`;
-                    srcEl.className = 'font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md';
-                }
-            }
 
             const mktEl = document.getElementById('market-status-badge');
             const modalMktEl = document.getElementById('live-modal-market-badge');
@@ -2168,7 +2107,7 @@ ARM 158.00</textarea>
                 const modalSyncEl = document.getElementById('live-modal-sync-time');
                 if (modalSyncEl) modalSyncEl.textContent = `同步失敗 (${nowStr})`;
                 if (isManual) {
-                    showToast('⚠️ 無法連線外部即時報價（可能受網路或預覽沙盒限制），已保留真實快取價，可點「⚙️ 報價設定」切換來源');
+                    showToast('⚠️ 無法連線外部即時報價（可能受網路或預覽沙盒限制），已保留真實快取價');
                 }
             }
 
