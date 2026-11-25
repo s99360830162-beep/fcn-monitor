@@ -41,6 +41,16 @@
             transform-origin: top left;
             will-change: transform;
         }
+        @keyframes quoteFlashUp {
+            0% { background-color: rgba(16, 185, 129, 0.22); }
+            100% { background-color: #ffffff; }
+        }
+        @keyframes quoteFlashDown {
+            0% { background-color: rgba(244, 63, 94, 0.22); }
+            100% { background-color: #ffffff; }
+        }
+        .quote-flash-up { animation: quoteFlashUp 1.1s ease-out; }
+        .quote-flash-down { animation: quoteFlashDown 1.1s ease-out; }
     </style>
 </head>
 <body class="min-h-screen pb-8">
@@ -106,6 +116,11 @@
                     </button>
                     <button onclick="openShareModal()" id="btn-open-share" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1 whitespace-nowrap" title="產生可分享給他人的網頁連結（支援隱藏本金與純檢視模式）">
                         <span>🔗 分享給他人</span>
+                    </button>
+                    <button onclick="openLiveQuotesModal()" id="btn-open-live-quotes" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 whitespace-nowrap" title="放大檢視所有開單連結個股的即時報價">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>⚡ 即時股價</span>
+                        <span id="live-quotes-btn-count" class="px-1.5 py-0.5 rounded-md bg-white/15 text-[10px] font-mono leading-none">17</span>
                     </button>
                     <button onclick="manualRefreshQuotes()" id="btn-manual-refresh" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1 whitespace-nowrap">
                         <span>🔄 更新股價</span>
@@ -290,6 +305,41 @@
 
     </main>
     </div>
+    </div>
+
+    <!-- ⚡ 開單個股即時報價放大視窗 Modal（超大字極簡版） -->
+    <div id="live-quotes-modal" onclick="if (event.target === this) closeLiveQuotesModal()" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-6">
+        <div class="bg-white rounded-3xl max-w-6xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-1.5">
+                        <span>⚡ 開單個股即時報價</span>
+                    </h3>
+                    <span id="live-modal-count-badge" class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">17 檔開單標的</span>
+                    <span id="live-modal-market-badge" class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">連線報價中...</span>
+                    <span id="live-modal-countdown" class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">(下次: 01:00)</span>
+                    <span id="live-modal-sync-time" class="text-xs text-slate-400 font-medium"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="live-quotes-sort-select" onchange="changeLiveQuotesSort(this.value)" title="排序方式" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                        <option value="default">預設排序</option>
+                        <option value="pct-desc">漲幅由高到低</option>
+                        <option value="pct-asc">跌幅由深到淺</option>
+                        <option value="alpha">代碼 A → Z</option>
+                    </select>
+                    <button onclick="manualRefreshQuotes()" id="btn-modal-refresh-quotes" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition flex items-center gap-1 whitespace-nowrap">
+                        <span>🔄 立即更新</span>
+                    </button>
+                    <button onclick="closeLiveQuotesModal()" aria-label="關閉" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-lg font-bold flex items-center justify-center transition">✕</button>
+                </div>
+            </div>
+
+            <div class="p-4 sm:p-6 overflow-y-auto bg-slate-50/80 flex-1">
+                <div id="live-quotes-modal-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
+                    <!-- 由 JS 動態渲染超大字極簡報價卡片 -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ⚙️ 美股即時報價來源與診斷 Modal -->
@@ -1097,7 +1147,8 @@ ARM 158.00</textarea>
             }
 
             const mktEl = document.getElementById('market-status-badge');
-            if (mktEl) {
+            const modalMktEl = document.getElementById('live-modal-market-badge');
+            if (mktEl || modalMktEl) {
                 const map = {
                     'REG_MKT':  { txt: '🟢 美股盤中', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
                     'PRE_MKT':  { txt: '🟡 美股盤前', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
@@ -1105,10 +1156,164 @@ ARM 158.00</textarea>
                     'CLOSED':   { txt: '⚪ 美股休市', cls: 'bg-slate-100 text-slate-600 border-slate-200' }
                 };
                 const info = map[currentMarketStatus] || { txt: '⚪ 報價就緒', cls: 'bg-slate-100 text-slate-600 border-slate-200' };
-                mktEl.textContent = info.txt;
-                mktEl.className = `text-[11px] font-extrabold px-2 py-0.5 rounded-full border ${info.cls}`;
+                if (mktEl) {
+                    mktEl.textContent = info.txt;
+                    mktEl.className = `text-[11px] font-extrabold px-2 py-0.5 rounded-full border ${info.cls}`;
+                }
+                if (modalMktEl) {
+                    modalMktEl.textContent = info.txt;
+                    modalMktEl.className = `text-xs font-extrabold px-2.5 py-1 rounded-full border ${info.cls}`;
+                }
             }
         }
+
+        // ================= ⚡ 開單個股即時報價放大視窗（超大字極簡版） =================
+        let liveQuoteFlashMap = {}; // { [sym]: { dir: 'up'|'down', ts: number } }
+        let liveQuotesSortMode = 'default';
+
+        function getActiveContractTickers() {
+            const set = new Set();
+            contracts.forEach(c => {
+                if (c.isClosed) return;
+                (c.stocks || []).forEach(s => {
+                    if (s.ticker) set.add(s.ticker.toUpperCase());
+                });
+            });
+            return set.size > 0 ? Array.from(set) : getMonitoredTickers();
+        }
+
+        function updateLiveQuotesButtonCount() {
+            const badge = document.getElementById('live-quotes-btn-count');
+            if (badge) {
+                badge.textContent = String(getActiveContractTickers().length);
+            }
+        }
+
+        function openLiveQuotesModal() {
+            const modal = document.getElementById('live-quotes-modal');
+            if (!modal) return;
+            const syncEl = document.getElementById('last-sync-time');
+            const modalSyncEl = document.getElementById('live-modal-sync-time');
+            if (syncEl && modalSyncEl) modalSyncEl.textContent = syncEl.textContent;
+            updateHeaderMarketBadges();
+            updateRefreshCountdownUi();
+            renderLiveQuotesModal();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeLiveQuotesModal() {
+            const modal = document.getElementById('live-quotes-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function changeLiveQuotesSort(mode) {
+            liveQuotesSortMode = mode || 'default';
+            renderLiveQuotesModal();
+        }
+
+        function selectTickerFromLiveModal(sym) {
+            closeLiveQuotesModal();
+            selectTickerForCurve(sym, true);
+        }
+
+        function renderLiveQuotesModal() {
+            const grid = document.getElementById('live-quotes-modal-grid');
+            const countBadge = document.getElementById('live-modal-count-badge');
+            if (!grid) return;
+
+            const tickers = getActiveContractTickers().slice();
+            if (countBadge) countBadge.textContent = `${tickers.length} 檔開單標的`;
+
+            const getPctVal = (sym) => {
+                const m = liveQuoteMeta[sym] || REAL_MARKET_QUOTES[sym] || {};
+                return typeof m.diffPct === 'number' ? m.diffPct : -999999;
+            };
+
+            if (liveQuotesSortMode === 'pct-desc') {
+                tickers.sort((a, b) => getPctVal(b) - getPctVal(a));
+            } else if (liveQuotesSortMode === 'pct-asc') {
+                tickers.sort((a, b) => getPctVal(a) - getPctVal(b));
+            } else if (liveQuotesSortMode === 'alpha') {
+                tickers.sort((a, b) => a.localeCompare(b));
+            }
+
+            const now = Date.now();
+            grid.innerHTML = tickers.map(sym => {
+                const meta = liveQuoteMeta[sym] || REAL_MARKET_QUOTES[sym] || {};
+                const price = (typeof meta.price === 'number' && meta.price > 0) ? meta.price : null;
+                const diffPct = (typeof meta.diffPct === 'number') ? meta.diffPct : null;
+                const isUp = diffPct !== null && diffPct > 0;
+                const isDown = diffPct !== null && diffPct < 0;
+
+                // 美股習慣：綠漲紅跌
+                const pctCls = isUp
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : (isDown ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-slate-500 bg-slate-100 border-slate-200');
+                const borderAccent = isUp
+                    ? 'border-emerald-200/80 hover:border-emerald-400'
+                    : (isDown ? 'border-rose-200/80 hover:border-rose-400' : 'border-slate-200 hover:border-indigo-300');
+
+                const flash = liveQuoteFlashMap[sym];
+                const flashCls = (flash && (now - flash.ts) < 1600)
+                    ? (flash.dir === 'up' ? 'quote-flash-up' : 'quote-flash-down')
+                    : '';
+
+                let extRowHtml = `
+                    <div class="mt-4 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-400 font-semibold">
+                        <span>盤前/盤後</span>
+                        <span class="font-mono">—</span>
+                    </div>
+                `;
+                if (typeof meta.extPrice === 'number' && meta.extPrice > 0) {
+                    const isPre = meta.extType === 'PRE_MKT';
+                    const extLabel = isPre ? '盤前' : '盤後';
+                    const extBadgeCls = isPre
+                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                        : 'bg-purple-50 text-purple-800 border border-purple-200';
+                    let extPctHtml = '';
+                    if (typeof meta.extDiffPct === 'number') {
+                        const extPctCls = meta.extDiffPct > 0
+                            ? 'text-emerald-600'
+                            : (meta.extDiffPct < 0 ? 'text-rose-600' : 'text-slate-500');
+                        extPctHtml = ` <span class="${extPctCls}">(${meta.extDiffPct > 0 ? '+' : ''}${meta.extDiffPct.toFixed(2)}%)</span>`;
+                    }
+                    extRowHtml = `
+                        <div class="mt-4 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs sm:text-sm font-bold">
+                            <span class="px-2 py-0.5 rounded-md ${extBadgeCls} text-[11px] font-extrabold shrink-0">${extLabel}</span>
+                            <span class="font-mono font-extrabold text-slate-800 truncate">$${meta.extPrice.toFixed(2)}${extPctHtml}</span>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div onclick="selectTickerFromLiveModal('${sym}')" title="點擊查看 ${sym} 開單走勢曲線"
+                        class="rounded-2xl bg-white border ${borderAccent} p-4 sm:p-5 shadow-xs hover:shadow-md transition cursor-pointer ${flashCls}">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">${sym}</span>
+                            <span class="px-2.5 py-1 rounded-xl border text-base sm:text-lg font-black font-mono leading-none ${pctCls}">
+                                ${diffPct !== null ? `${isUp ? '+' : ''}${diffPct.toFixed(2)}%` : '--'}
+                            </span>
+                        </div>
+                        <div class="mt-3 text-4xl sm:text-[42px] leading-none font-black font-mono tracking-tight text-slate-900">
+                            ${price !== null ? `$${price.toFixed(2)}` : '<span class="text-xl text-slate-400">抓取中...</span>'}
+                        </div>
+                        ${extRowHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const liveModal = document.getElementById('live-quotes-modal');
+                if (liveModal && !liveModal.classList.contains('hidden')) {
+                    closeLiveQuotesModal();
+                }
+            }
+        });
 
         // 載入 / 儲存報價設定與快取
         function loadQuoteSettings() {
@@ -1518,6 +1723,10 @@ ARM 158.00</textarea>
 
             const extPrice = parseQuoteNum(payload.extPrice);
             const extDiffPct = parseQuoteNum(payload.extDiffPct);
+            const oldPrice = typeof prevMeta.price === 'number' ? prevMeta.price : null;
+            if (oldPrice !== null && Math.abs(cleanPrice - oldPrice) >= 0.01) {
+                liveQuoteFlashMap[sym] = { dir: cleanPrice > oldPrice ? 'up' : 'down', ts: Date.now() };
+            }
 
             liveQuoteMeta[sym] = {
                 ...prevMeta,
@@ -1882,6 +2091,12 @@ ARM 158.00</textarea>
                 btn.classList.add('opacity-75');
                 btn.disabled = true;
             }
+            const modalBtnStart = document.getElementById('btn-modal-refresh-quotes');
+            if (modalBtnStart) {
+                modalBtnStart.innerHTML = `<span>⏳ 更新中...</span>`;
+                modalBtnStart.classList.add('opacity-75');
+                modalBtnStart.disabled = true;
+            }
 
             const tickers = getMonitoredTickers();
             const updatedAll = new Set();
@@ -1939,6 +2154,8 @@ ARM 158.00</textarea>
                     : `${usedSources.join('+')} (${updatedAll.size}/${tickers.length})`;
                 updateHeaderMarketBadges(sourceSummary, currentMarketStatus);
                 if (syncEl) syncEl.textContent = `最後更新: ${nowStr}`;
+                const modalSyncEl = document.getElementById('live-modal-sync-time');
+                if (modalSyncEl) modalSyncEl.textContent = `最後更新: ${nowStr}`;
                 saveLiveQuotesCache();
                 saveContracts();
                 renderAll();
@@ -1948,15 +2165,23 @@ ARM 158.00</textarea>
             } else {
                 updateHeaderMarketBadges('連線受限(基準/快取價)', currentMarketStatus);
                 if (syncEl) syncEl.textContent = `同步失敗 (${nowStr})`;
+                const modalSyncEl = document.getElementById('live-modal-sync-time');
+                if (modalSyncEl) modalSyncEl.textContent = `同步失敗 (${nowStr})`;
                 if (isManual) {
                     showToast('⚠️ 無法連線外部即時報價（可能受網路或預覽沙盒限制），已保留真實快取價，可點「⚙️ 報價設定」切換來源');
                 }
             }
 
             if (btn) {
-                btn.innerHTML = `<span>🔄 立即更新股價</span>`;
+                btn.innerHTML = `<span>🔄 更新股價</span>`;
                 btn.classList.remove('opacity-75');
                 btn.disabled = false;
+            }
+            const modalBtn = document.getElementById('btn-modal-refresh-quotes');
+            if (modalBtn) {
+                modalBtn.innerHTML = `<span>🔄 立即更新</span>`;
+                modalBtn.classList.remove('opacity-75');
+                modalBtn.disabled = false;
             }
             isRefreshingQuotes = false;
 
@@ -1984,9 +2209,12 @@ ARM 158.00</textarea>
         function updateRefreshCountdownUi() {
             const statusEl = document.getElementById('auto-refresh-status');
             const dotEl = document.getElementById('auto-refresh-dot');
+            const modalCountdownEl = document.getElementById('live-modal-countdown');
             if (!statusEl) return;
             if (quoteSettings.refreshIntervalSec <= 0) {
-                statusEl.textContent = finnhubWsConnected ? '(WS 推播中)' : '(已暫停)';
+                const txt = finnhubWsConnected ? '(WS 推播中)' : '(已暫停)';
+                statusEl.textContent = txt;
+                if (modalCountdownEl) modalCountdownEl.textContent = txt;
                 if (dotEl) dotEl.className = finnhubWsConnected
                     ? 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse'
                     : 'w-2 h-2 rounded-full bg-slate-400';
@@ -1995,7 +2223,9 @@ ARM 158.00</textarea>
             if (dotEl) dotEl.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
             const mm = String(Math.floor(remainingRefreshSec / 60)).padStart(2, '0');
             const ss = String(remainingRefreshSec % 60).padStart(2, '0');
-            statusEl.textContent = `(下次: ${mm}:${ss})`;
+            const txt = `(下次: ${mm}:${ss})`;
+            statusEl.textContent = txt;
+            if (modalCountdownEl) modalCountdownEl.textContent = txt;
         }
 
         function startAutoRefreshTimer() {
@@ -4039,6 +4269,11 @@ ARM 158.00</textarea>
             renderTickerMatrix();
             if (currentTab !== 'matrix') {
                 renderSingleContractView(currentTab);
+            }
+            updateLiveQuotesButtonCount();
+            const liveModal = document.getElementById('live-quotes-modal');
+            if (liveModal && !liveModal.classList.contains('hidden')) {
+                renderLiveQuotesModal();
             }
             applyStageZoom();
         }
