@@ -499,11 +499,11 @@ ARM 158.00</textarea>
             </div>
 
             <div class="space-y-4 text-xs">
-                <!-- 本機／沙盒提示（部署到 GitHub Pages 後會自動隱藏） -->
+                <!-- 本機／沙盒提示（部署到 Cloudflare Pages 後會自動隱藏） -->
                 <div id="share-local-hint" class="hidden p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-1">
                     <p class="font-extrabold text-amber-950">💡 目前為本機／預覽模式</p>
                     <p class="text-amber-800 leading-relaxed">
-                        發佈到 <strong>GitHub Pages</strong> 後，下方會自動帶入您的永久公開網址（<code>https://&lt;帳號&gt;.github.io/...</code>），傳到 LINE 或 Email 給任何人都能直接點開並即時更新美股！
+                        已預設帶入您的 <strong>Cloudflare Pages</strong> 永久公開網址（<code>https://fcn-monitor-dzb.pages.dev/</code>），傳到 LINE 或 Email 給任何人都能直接點開並即時更新美股！
                     </p>
                 </div>
 
@@ -2082,7 +2082,7 @@ ARM 158.00</textarea>
             const isWebHosted = /^https?:$/i.test(window.location.protocol || '');
             const base = isWebHosted
                 ? `${window.location.origin}${window.location.pathname}`
-                : 'https://<您的GitHub帳號>.github.io/fcn-monitor/';
+                : 'https://fcn-monitor-dzb.pages.dev/';
 
             const params = new URLSearchParams();
             if (ro) params.set('mode', 'share');
